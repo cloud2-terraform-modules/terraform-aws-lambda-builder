@@ -174,7 +174,6 @@ variable "reserved_concurrent_executions" {
 variable "role" {
   description = "IAM role attached to the Lambda Function. This governs both who / what can invoke your Lambda Function, as well as what resources our Lambda Function has access to."
   type        = string
-  default     = null
 }
 
 variable "runtime" {

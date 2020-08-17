@@ -157,21 +157,21 @@ locals {
 # (if role is not supplied)           #
 #######################################
 
-module "role" {
-  source = "git::https://gitlab.com/claranet-pcp/terraform/aws/terraform-aws-lambda-role.git?ref=v0.0.5"
+# module "role" {
+#   source = "git::https://gitlab.com/claranet-pcp/terraform/aws/terraform-aws-lambda-role.git?ref=v0.0.5"
 
-  enabled = var.enabled && coalesce(var.create_role, var.role == null)
+#   enabled = var.enabled && coalesce(var.create_role, var.role == null)
 
-  function_name         = var.function_name
-  cloudwatch_logs       = var.role_cloudwatch_logs
-  custom_policies       = var.role_custom_policies
-  custom_policies_count = var.role_custom_policies_count
-  dead_letter_config    = var.dead_letter_config
-  policy_arns           = var.role_policy_arns
-  policy_arns_count     = var.role_policy_arns_count
-  tags                  = var.tags
-  vpc_config            = var.vpc_config
-}
+#   function_name         = var.function_name
+#   cloudwatch_logs       = var.role_cloudwatch_logs
+#   custom_policies       = var.role_custom_policies
+#   custom_policies_count = var.role_custom_policies_count
+#   dead_letter_config    = var.dead_letter_config
+#   policy_arns           = var.role_policy_arns
+#   policy_arns_count     = var.role_policy_arns_count
+#   tags                  = var.tags
+#   vpc_config            = var.vpc_config
+# }
 
 ##############################
 # Create the Lambda function #
@@ -189,7 +189,7 @@ resource "aws_lambda_function" "built" {
   memory_size                    = var.memory_size
   publish                        = var.publish
   reserved_concurrent_executions = var.reserved_concurrent_executions
-  role                           = var.role != null ? var.role : module.role.arn
+  role                           = var.role
   runtime                        = var.runtime
   s3_bucket                      = var.s3_bucket
   s3_key                         = contains(["CODEBUILD", "LAMBDA", "S3"], var.build_mode) ? coalesce(local.built_s3_key, local.source_zip_file_s3_key) : var.s3_key
