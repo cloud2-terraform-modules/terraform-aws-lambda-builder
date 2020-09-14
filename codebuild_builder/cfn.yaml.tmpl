@@ -56,6 +56,18 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                 Resource: !Sub "arn:aws:s3:::$${Bucket}/$${KeyPrefix}/*"
+        - PolicyName: SSM
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:DescribeParameters
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ssm:Get*
+                Resource: !Sub "arn:aws:ssm:$${AWS::Region}:$${AWS::AccountId}:parameter/github_deploy_keys/*"
   CodeBuild:
     Type: AWS::CodeBuild::Project
     Properties:
