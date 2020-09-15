@@ -1,5 +1,55 @@
 # terraform-aws-lambda-builder
 
+Tää on forkattu osoitteesta:
+[https://github.com/raymondbutcher/terraform-aws-lambda-builder?files=1]
+
+Muutoksia:
+
+- Terraform 0.13 yhteensopivuus, poistamalla lambda roolin luonti
+- CODEBUILD moodiin roolille oikeus lukea SSM parametreja
+  
+## Käyttö
+
+- Lisää terraformiin ohjeiden mukaan
+- Yksinkertaiset lambdat kannattaa buildata lambda modessa ja monimutkaisemmat, tai jos esimerkiksi tarvitset pääsyä priaaatti github repoihin, käytä CODEBUILD modea.
+- LAMBDA modessa: luo build.sh, jossa voit esim asentaa pip requirements.txt
+- CODEBUILD modessa: luo Codebuildin buildspec.yml
+
+### Esimerkki codespec.yml CODEBUILD modeen
+
+Hakee ssh keyn parameter storesta ja asentaa requirements.txt:n python paketit.
+**HUOM: runtime-versio tulee olla sama kuin lambdassa oleva versio.**
+
+```yaml
+version: 0.2
+
+env:
+  parameter-store:
+    build_ssh_key: /github_deploy_keys/cloud2-python-modules
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - mkdir -p ~/.ssh
+      - echo "$build_ssh_key" > ~/.ssh/id_rsa
+      - chmod 600 ~/.ssh/id_rsa
+      - ssh-keygen -F github.com || ssh-keyscan github.com >>~/.ssh/known_hosts
+
+  build:
+    commands:
+      - pip install -r requirements.txt -t .
+
+artifacts:
+  files:
+    - "**/*"
+```
+
+
+
+# Alkuperäisen repon README:
+
 This Terraform module packages and deploys an AWS Lambda function. It optionally runs a build script *inside Lambda or CodeBuild* to build the Lambda package. This is great for building and deploying Go, Node.js, Python and other Lambda functions without needing any of their toolchains installed.
 
 ## Features
@@ -112,13 +162,13 @@ The `LAMBDA` build mode works as follows.
 
  Different runtimes have different tools installed. Here are some notes about what is available to use in `build.sh`.
 
-| Runtime    | Notes                |
-|------------|----------------------|
-| nodejs10.x | `npm install` works  |
-| nodejs12.x | `npm install` works  |
-| python2.7  | `pip` not included   |
-| python3.6  | `pip install` works  |
-| python3.7  | `pip install` works  |
+| Runtime    | Notes                                                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| nodejs10.x | `npm install` works                                                                                                           |
+| nodejs12.x | `npm install` works                                                                                                           |
+| python2.7  | `pip` not included                                                                                                            |
+| python3.6  | `pip install` works                                                                                                           |
+| python3.7  | `pip install` works                                                                                                           |
 | python3.8  | waiting on [this](https://github.com/aws-cloudformation/aws-cloudformation-coverage-roadmap/issues/80), try CodeBuild instead |
 
 Runtimes not listed above have not been tested.
@@ -146,79 +196,79 @@ in the master branch, so don't bother manually changing them.
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 ## Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:-----:|
-| create\_role | Create an IAM role for the function. Only required when `role` is a computed/unknown value. | `bool` | n/a | yes |
-| dead\_letter\_config | Nested block to configure the function's dead letter queue. See details below. | <pre>object({<br>    target_arn = string<br>  })<br></pre> | n/a | yes |
-| description | Description of what your Lambda Function does. | `string` | n/a | yes |
-| environment | The Lambda environment's configuration settings. | <pre>object({<br>    variables = map(string)<br>  })<br></pre> | n/a | yes |
-| filename | The path to the function's deployment package within the local filesystem. If defined, The s3\_-prefixed options cannot be used. | `string` | n/a | yes |
-| function\_name | A unique name for your Lambda Function. | `string` | n/a | yes |
-| handler | The function entrypoint in your code. | `string` | n/a | yes |
-| kms\_key\_arn | Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key that is used to encrypt environment variables. | `string` | n/a | yes |
-| layers | List of Lambda Layer Version ARNs (maximum of 5) to attach to your Lambda Function. | `list(string)` | n/a | yes |
-| memory\_size | Amount of memory in MB your Lambda Function can use at runtime. | `number` | n/a | yes |
-| publish | Whether to publish creation/change as new Lambda Function Version. | `bool` | n/a | yes |
-| reserved\_concurrent\_executions | The amount of reserved concurrent executions for this lambda function. A value of 0 disables lambda from being triggered and -1 removes any concurrency limitations. | `number` | n/a | yes |
-| role | IAM role attached to the Lambda Function. This governs both who / what can invoke your Lambda Function, as well as what resources our Lambda Function has access to. | `string` | n/a | yes |
-| role\_custom\_policies\_count | The number of `role_custom_policies` to attach. Only required when `role_custom_policies` is a computed/unknown value. | `number` | n/a | yes |
-| role\_policy\_arns\_count | The number of `role_policy_arns` to attach. Only required when `role_policy_arns` is a computed/unknown value. | `number` | n/a | yes |
-| runtime | The identifier of the function's runtime. | `string` | n/a | yes |
-| s3\_bucket | The S3 bucket location containing the function's deployment package. Conflicts with filename. This bucket must reside in the same AWS region where you are creating the Lambda function. | `string` | n/a | yes |
-| s3\_key | The S3 key of an object containing the function's deployment package. Conflicts with filename. | `string` | n/a | yes |
-| s3\_object\_version | The object version containing the function's deployment package. Conflicts with filename. | `string` | n/a | yes |
-| source\_code\_hash | Used to trigger updates. Must be set to a base64-encoded SHA256 hash of the package file specified with either filename or s3\_key. | `string` | n/a | yes |
-| tags | A mapping of tags to assign to the object. | `map(string)` | n/a | yes |
-| timeout | The amount of time your Lambda Function has to run in seconds. | `number` | n/a | yes |
-| tracing\_config | Provide this to configure tracing. | <pre>object({<br>    mode = string<br>  })<br></pre> | n/a | yes |
-| vpc\_config | Provide this to allow your function to access your VPC. | <pre>object({<br>    security_group_ids = list(string)<br>    subnet_ids         = list(string)<br>  })<br></pre> | n/a | yes |
-| build\_mode | The build mode to use, one of `CODEBUILD`, `DISABLED`, `FILENAME`, `LAMBDA`, `S3`. | `string` | `"DISABLED"` | no |
-| codebuild\_environment\_compute\_type | Compute type for CodeBuild. See https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html | `string` | `"BUILD_GENERAL1_SMALL"` | no |
-| codebuild\_environment\_image | Image for CodeBuild. See https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html | `string` | `"aws/codebuild/amazonlinux2-x86_64-standard:3.0"` | no |
-| codebuild\_environment\_type | The type of CodeBuild build environment to use. See https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html | `string` | `"LINUX_CONTAINER"` | no |
-| codebuild\_queued\_timeout\_in\_minutes | The number of minutes CodeBuild is allowed to be queued before it times out. | `number` | `15` | no |
-| codebuild\_timeout\_in\_minutes | The number of minutes CodeBuild is allowed to run before it times out. | `number` | `60` | no |
-| empty\_dirs | Include empty directories in the Lambda package. | `bool` | `false` | no |
-| enabled | Create resources. | `bool` | `true` | no |
-| lambda\_builder\_memory\_size | Memory size for the builder Lambda function. | `number` | `512` | no |
-| lambda\_builder\_timeout | Timeout for the builder Lambda function. | `number` | `900` | no |
-| role\_cloudwatch\_logs | If `role` is not provided, one will be created with a policy that enables CloudWatch Logs. | `bool` | `false` | no |
-| role\_custom\_policies | If `role` is not provided, one will be created with these JSON policies attached. | `list(string)` | `[]` | no |
-| role\_policy\_arns | If `role` is not provided, one will be created with these policy ARNs attached. | `list(string)` | `[]` | no |
-| source\_dir | Local source directory for the Lambda package. This will be zipped and uploaded to the S3 bucket. Requires `s3_bucket`. Conflicts with `s3_key`, `s3_object_version` and `filename`. | `string` | `""` | no |
+| Name                                    | Description                                                                                                                                                                              | Type                                                                                                              | Default                                            | Required |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | :------: |
+| create\_role                            | Create an IAM role for the function. Only required when `role` is a computed/unknown value.                                                                                              | `bool`                                                                                                            | n/a                                                |   yes    |
+| dead\_letter\_config                    | Nested block to configure the function's dead letter queue. See details below.                                                                                                           | <pre>object({<br>    target_arn = string<br>  })<br></pre>                                                        | n/a                                                |   yes    |
+| description                             | Description of what your Lambda Function does.                                                                                                                                           | `string`                                                                                                          | n/a                                                |   yes    |
+| environment                             | The Lambda environment's configuration settings.                                                                                                                                         | <pre>object({<br>    variables = map(string)<br>  })<br></pre>                                                    | n/a                                                |   yes    |
+| filename                                | The path to the function's deployment package within the local filesystem. If defined, The s3\_-prefixed options cannot be used.                                                         | `string`                                                                                                          | n/a                                                |   yes    |
+| function\_name                          | A unique name for your Lambda Function.                                                                                                                                                  | `string`                                                                                                          | n/a                                                |   yes    |
+| handler                                 | The function entrypoint in your code.                                                                                                                                                    | `string`                                                                                                          | n/a                                                |   yes    |
+| kms\_key\_arn                           | Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key that is used to encrypt environment variables.                                                                    | `string`                                                                                                          | n/a                                                |   yes    |
+| layers                                  | List of Lambda Layer Version ARNs (maximum of 5) to attach to your Lambda Function.                                                                                                      | `list(string)`                                                                                                    | n/a                                                |   yes    |
+| memory\_size                            | Amount of memory in MB your Lambda Function can use at runtime.                                                                                                                          | `number`                                                                                                          | n/a                                                |   yes    |
+| publish                                 | Whether to publish creation/change as new Lambda Function Version.                                                                                                                       | `bool`                                                                                                            | n/a                                                |   yes    |
+| reserved\_concurrent\_executions        | The amount of reserved concurrent executions for this lambda function. A value of 0 disables lambda from being triggered and -1 removes any concurrency limitations.                     | `number`                                                                                                          | n/a                                                |   yes    |
+| role                                    | IAM role attached to the Lambda Function. This governs both who / what can invoke your Lambda Function, as well as what resources our Lambda Function has access to.                     | `string`                                                                                                          | n/a                                                |   yes    |
+| role\_custom\_policies\_count           | The number of `role_custom_policies` to attach. Only required when `role_custom_policies` is a computed/unknown value.                                                                   | `number`                                                                                                          | n/a                                                |   yes    |
+| role\_policy\_arns\_count               | The number of `role_policy_arns` to attach. Only required when `role_policy_arns` is a computed/unknown value.                                                                           | `number`                                                                                                          | n/a                                                |   yes    |
+| runtime                                 | The identifier of the function's runtime.                                                                                                                                                | `string`                                                                                                          | n/a                                                |   yes    |
+| s3\_bucket                              | The S3 bucket location containing the function's deployment package. Conflicts with filename. This bucket must reside in the same AWS region where you are creating the Lambda function. | `string`                                                                                                          | n/a                                                |   yes    |
+| s3\_key                                 | The S3 key of an object containing the function's deployment package. Conflicts with filename.                                                                                           | `string`                                                                                                          | n/a                                                |   yes    |
+| s3\_object\_version                     | The object version containing the function's deployment package. Conflicts with filename.                                                                                                | `string`                                                                                                          | n/a                                                |   yes    |
+| source\_code\_hash                      | Used to trigger updates. Must be set to a base64-encoded SHA256 hash of the package file specified with either filename or s3\_key.                                                      | `string`                                                                                                          | n/a                                                |   yes    |
+| tags                                    | A mapping of tags to assign to the object.                                                                                                                                               | `map(string)`                                                                                                     | n/a                                                |   yes    |
+| timeout                                 | The amount of time your Lambda Function has to run in seconds.                                                                                                                           | `number`                                                                                                          | n/a                                                |   yes    |
+| tracing\_config                         | Provide this to configure tracing.                                                                                                                                                       | <pre>object({<br>    mode = string<br>  })<br></pre>                                                              | n/a                                                |   yes    |
+| vpc\_config                             | Provide this to allow your function to access your VPC.                                                                                                                                  | <pre>object({<br>    security_group_ids = list(string)<br>    subnet_ids         = list(string)<br>  })<br></pre> | n/a                                                |   yes    |
+| build\_mode                             | The build mode to use, one of `CODEBUILD`, `DISABLED`, `FILENAME`, `LAMBDA`, `S3`.                                                                                                       | `string`                                                                                                          | `"DISABLED"`                                       |    no    |
+| codebuild\_environment\_compute\_type   | Compute type for CodeBuild. See https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html                                                                  | `string`                                                                                                          | `"BUILD_GENERAL1_SMALL"`                           |    no    |
+| codebuild\_environment\_image           | Image for CodeBuild. See https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html                                                                             | `string`                                                                                                          | `"aws/codebuild/amazonlinux2-x86_64-standard:3.0"` |    no    |
+| codebuild\_environment\_type            | The type of CodeBuild build environment to use. See https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html                                              | `string`                                                                                                          | `"LINUX_CONTAINER"`                                |    no    |
+| codebuild\_queued\_timeout\_in\_minutes | The number of minutes CodeBuild is allowed to be queued before it times out.                                                                                                             | `number`                                                                                                          | `15`                                               |    no    |
+| codebuild\_timeout\_in\_minutes         | The number of minutes CodeBuild is allowed to run before it times out.                                                                                                                   | `number`                                                                                                          | `60`                                               |    no    |
+| empty\_dirs                             | Include empty directories in the Lambda package.                                                                                                                                         | `bool`                                                                                                            | `false`                                            |    no    |
+| enabled                                 | Create resources.                                                                                                                                                                        | `bool`                                                                                                            | `true`                                             |    no    |
+| lambda\_builder\_memory\_size           | Memory size for the builder Lambda function.                                                                                                                                             | `number`                                                                                                          | `512`                                              |    no    |
+| lambda\_builder\_timeout                | Timeout for the builder Lambda function.                                                                                                                                                 | `number`                                                                                                          | `900`                                              |    no    |
+| role\_cloudwatch\_logs                  | If `role` is not provided, one will be created with a policy that enables CloudWatch Logs.                                                                                               | `bool`                                                                                                            | `false`                                            |    no    |
+| role\_custom\_policies                  | If `role` is not provided, one will be created with these JSON policies attached.                                                                                                        | `list(string)`                                                                                                    | `[]`                                               |    no    |
+| role\_policy\_arns                      | If `role` is not provided, one will be created with these policy ARNs attached.                                                                                                          | `list(string)`                                                                                                    | `[]`                                               |    no    |
+| source\_dir                             | Local source directory for the Lambda package. This will be zipped and uploaded to the S3 bucket. Requires `s3_bucket`. Conflicts with `s3_key`, `s3_object_version` and `filename`.     | `string`                                                                                                          | `""`                                               |    no    |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| arn | The Amazon Resource Name (ARN) identifying your Lambda Function. |
-| dead\_letter\_config | The function's dead letter queue configuration. |
-| description | Description of what your Lambda Function does. |
-| environment | The Lambda environment's configuration settings. |
-| function\_name | The unique name for your Lambda Function. |
-| handler | The function entrypoint in your code. |
-| invoke\_arn | The ARN to be used for invoking Lambda Function from API Gateway. |
-| kms\_key\_arn | The ARN for the KMS encryption key. |
-| last\_modified | The date this resource was last modified. |
-| layers | List of Lambda Layer Version ARNs attached to your Lambda Function. |
-| log\_group\_name | The log group name for your Lambda Function. |
-| log\_group\_name\_edge | The log group name for your Lambda@Edge Function. |
-| memory\_size | Amount of memory in MB your Lambda Function can use at runtime. |
-| publish | Whether creation/changes will publish a new Lambda Function Version. |
-| qualified\_arn | The Amazon Resource Name (ARN) identifying your Lambda Function Version (if versioning is enabled via publish = true). |
-| reserved\_concurrent\_executions | The amount of reserved concurrent executions for this lambda function. |
-| role | IAM role attached to the Lambda Function. |
-| role\_name | The name of the IAM role attached to the Lambda Function. |
-| runtime | The identifier of the function's runtime. |
-| s3\_bucket | The S3 bucket location containing the function's deployment package. |
-| s3\_key | The S3 key of an object containing the function's deployment package. |
-| s3\_object\_version | The object version containing the function's deployment package. |
-| source\_code\_hash | Base64-encoded representation of raw SHA-256 sum of the zip file. |
-| source\_code\_size | The size in bytes of the function .zip file. |
-| tags | A mapping of tags assigned to the object. |
-| timeout | The amount of time your Lambda Function has to run in seconds. |
-| tracing\_config | The tracing configuration. |
-| version | Latest published version of your Lambda Function. |
-| vpc\_config | The VPC configuration. |
+| Name                             | Description                                                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| arn                              | The Amazon Resource Name (ARN) identifying your Lambda Function.                                                       |
+| dead\_letter\_config             | The function's dead letter queue configuration.                                                                        |
+| description                      | Description of what your Lambda Function does.                                                                         |
+| environment                      | The Lambda environment's configuration settings.                                                                       |
+| function\_name                   | The unique name for your Lambda Function.                                                                              |
+| handler                          | The function entrypoint in your code.                                                                                  |
+| invoke\_arn                      | The ARN to be used for invoking Lambda Function from API Gateway.                                                      |
+| kms\_key\_arn                    | The ARN for the KMS encryption key.                                                                                    |
+| last\_modified                   | The date this resource was last modified.                                                                              |
+| layers                           | List of Lambda Layer Version ARNs attached to your Lambda Function.                                                    |
+| log\_group\_name                 | The log group name for your Lambda Function.                                                                           |
+| log\_group\_name\_edge           | The log group name for your Lambda@Edge Function.                                                                      |
+| memory\_size                     | Amount of memory in MB your Lambda Function can use at runtime.                                                        |
+| publish                          | Whether creation/changes will publish a new Lambda Function Version.                                                   |
+| qualified\_arn                   | The Amazon Resource Name (ARN) identifying your Lambda Function Version (if versioning is enabled via publish = true). |
+| reserved\_concurrent\_executions | The amount of reserved concurrent executions for this lambda function.                                                 |
+| role                             | IAM role attached to the Lambda Function.                                                                              |
+| role\_name                       | The name of the IAM role attached to the Lambda Function.                                                              |
+| runtime                          | The identifier of the function's runtime.                                                                              |
+| s3\_bucket                       | The S3 bucket location containing the function's deployment package.                                                   |
+| s3\_key                          | The S3 key of an object containing the function's deployment package.                                                  |
+| s3\_object\_version              | The object version containing the function's deployment package.                                                       |
+| source\_code\_hash               | Base64-encoded representation of raw SHA-256 sum of the zip file.                                                      |
+| source\_code\_size               | The size in bytes of the function .zip file.                                                                           |
+| tags                             | A mapping of tags assigned to the object.                                                                              |
+| timeout                          | The amount of time your Lambda Function has to run in seconds.                                                         |
+| tracing\_config                  | The tracing configuration.                                                                                             |
+| version                          | Latest published version of your Lambda Function.                                                                      |
+| vpc\_config                      | The VPC configuration.                                                                                                 |
 
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
